@@ -2,6 +2,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pywt
 import scipy
+import sys
+from io import StringIO
+from io import BytesIO
 from numpy.linalg import svd
 from skimage import data, img_as_float
 from skimage import measure
@@ -48,7 +51,7 @@ def perform_percent_svd(matrix, percent=0.9):
     k = 1
     while (np.sum(s[:k]) / total_energy) <= percent:
         k += 1
-    return np.matrix(U[:, :k]) * np.diag(s[:k]) * np.matrix(V[:k, :])
+    return np.array(np.matrix(U[:, :k]) * np.diag(s[:k]) * np.matrix(V[:k, :]))
 
 
 #@print_result_decorator
@@ -69,7 +72,27 @@ def perform_dwt(image_to_compress):
     coefs = pywt.dwt2(image_to_compress, 'haar')
     compressed, (a, b, c) = coefs
     #scipy.misc.imsave('photo/compressed.jpg', compressed)
-    return compressed
+    return compressed, coefs
+
+
+def get_size(obj, seen=None):
+    """Recursively finds size of objects
+    Looks not ok for our case"""
+    size = sys.getsizeof(obj)
+    if seen is None:
+        seen = set()
+    obj_id = id(obj)
+    if obj_id in seen:
+        return 0
+    seen.add(obj_id)
+    if isinstance(obj, dict):
+        size += sum([get_size(v, seen) for v in obj.values()])
+        size += sum([get_size(k, seen) for k in obj.keys()])
+    elif hasattr(obj, '__dict__'):
+        size += get_size(obj.__dict__, seen)
+    elif hasattr(obj, '__iter__') and not isinstance(obj, (str, bytes, bytearray)):
+        size += sum([get_size(i, seen) for i in obj])
+    return size
 
 
 if __name__ == '__main__':
@@ -78,12 +101,26 @@ if __name__ == '__main__':
 
     svd_compressed = perform_percent_svd(img_matrix)
 
-    fully_compressed = perform_dwt(svd_compressed)
+    fully_compressed, dwt_decomposition = perform_dwt(svd_compressed)
 
-    svd_compression_ratio = measure.compare_psnr(img_matrix, svd_compressed)
-    dwt_compression_ratio = measure.compare_psnr(svd_compressed, fully_compressed)
-    total_compression_ratio = measure.compare_psnr(img_matrix, fully_compressed)
+    dwt_restored = pywt.idwt2(dwt_decomposition, 'haar')
 
-    print(svd_compression_ratio)
-    print(dwt_compression_ratio)
-    print(total_compression_ratio)
+    psnr_svd = measure.compare_psnr(img_matrix, svd_compressed)
+    #psnr_dwt = measure.compare_psnr(svd_compressed, dwt_restored)
+    psnr_total = measure.compare_psnr(img_matrix, dwt_restored)
+
+    print(psnr_svd)
+    #print(psnr_dwt)
+    print(psnr_total)
+
+    #-WTF?
+    print('Original: ' + str(get_size(img_matrix)))
+    print('SVD Compressed: ' + str(get_size(svd_compressed)))
+    print('DWT Compressed: ' + str(get_size(fully_compressed)))
+    print('DWT Decomposition: ' + str(get_size(dwt_decomposition)))  # ??? Where is the compression? Need to find other way for calculations
+    print('Restored: ' + str(get_size(dwt_restored)))
+
+    import pickle
+
+    orig = pickle.dumps(img_matrix)
+    get_size(pickle)
