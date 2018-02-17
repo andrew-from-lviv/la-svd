@@ -4,6 +4,7 @@ import pywt
 import scipy
 import os
 import sys
+import benchmark
 from io import StringIO
 from io import BytesIO
 from numpy.linalg import svd
@@ -11,7 +12,9 @@ from skimage import data, img_as_float
 from skimage import measure
 from skimage.color import rgb2gray
 
-BASE_PROCESSING_FOLDER = 'images/processing'
+
+BASE_PROCESSING_FOLDER = 'images/real'
+BASE_SAVING_FOLDER = 'images/compressed'
 
 
 def print_result_decorator(original_function):
@@ -99,10 +102,10 @@ def get_size(obj, seen=None):
 
 
 def calc_comp_rate(original, compressed):
-    return os.path.getsize(original) / os.path.getsize(compressed)
+    return (1 - round(os.path.getsize(compressed) / float(os.path.getsize(original)), 3))*100
 
 
-def run_pipeline(im_pathes, include_svd = True, include_dwt = False, svd_percentage = 0.9, save_temporary_results = False):
+def run_pipeline(im_pathes, include_svd = True, include_dwt = False, include_dct = False, include_dft=False, svd_percentage = 0.9, save_temporary_results = False):
     if not include_svd and not include_dwt:
         raise ValueError('Do at least something!')
     results = []
@@ -111,33 +114,50 @@ def run_pipeline(im_pathes, include_svd = True, include_dwt = False, svd_percent
         im_name = im_path.split('/')[-1]
         original_matrix = img_as_float(rgb2gray(scipy.misc.imread(im_path)))
         compressed = original_matrix
-        orig_path = os.path.join(BASE_PROCESSING_FOLDER, '{}.png'.format(im_name))
+        orig_path = os.path.join(BASE_PROCESSING_FOLDER, '{}'.format(im_name))
         scipy.misc.imsave(orig_path, original_matrix)
         res = {'picture':im_path}
 
         if include_svd:
             compressed = perform_percent_svd(compressed, svd_percentage)
-            svd_im_path = os.path.join(BASE_PROCESSING_FOLDER,
-                                           'svd_c_{}.png'.format(im_name))
+            svd_im_path = os.path.join(BASE_SAVING_FOLDER,
+                                           'svd_c_{}'.format(im_name))
             scipy.misc.imsave(svd_im_path, compressed)
             res['svd_compression'] = calc_comp_rate(orig_path, svd_im_path)
             res['svd_psnr'] = measure.compare_psnr(original_matrix, compressed)
 
         if include_dwt:
             compressed, coefs = perform_dwt(compressed)
-            dwt_im_path = os.path.join(BASE_PROCESSING_FOLDER,
-                                       'dwt_c_{}.png'.format(im_name))
+            dwt_im_path = os.path.join(BASE_SAVING_FOLDER,
+                                       'dwt_c_{}'.format(im_name))
 
             #some issue with this part
             scipy.misc.imsave(dwt_im_path, compressed)
             res['dwt_decomposed_compression'] = calc_comp_rate(orig_path, dwt_im_path)
 
             compressed = pywt.idwt2(coefs, 'haar')
-            restored_im_path = os.path.join(BASE_PROCESSING_FOLDER,
-                                       'restored_c_{}.png'.format(im_name))
+            restored_im_path = os.path.join(BASE_SAVING_FOLDER,
+                                       'restored_c_{}'.format(im_name))
             scipy.misc.imsave(restored_im_path, compressed)
             res['dwt_restored_compression'] = calc_comp_rate(orig_path, restored_im_path)
             res['dwt_restored_psnr'] = measure.compare_psnr(original_matrix, compressed)
+
+        if include_dct:
+        	compressed = benchmark.compressed_dct(original_matrix)
+        	dct_im_path = os.path.join(BASE_SAVING_FOLDER, 'dct_c_{}'.format(im_name))
+
+        	scipy.misc.imsave(svd_im_path, compressed)
+        	res['dct_psnr'] = measure.compare_psnr(original_matrix, compressed)
+        	res['dct_compression'] = calc_comp_rate(orig_path, dct_im_path)
+
+
+        if include_dft:
+        	compressed = benchmark.compressed_dft(original_matrix)
+        	dft_im_path = os.path.join(BASE_SAVING_FOLDER, 'dft_c_{}'.format(im_name))
+
+        	scipy.misc.imsave(svd_im_path, compressed)
+        	res['dft_psnr'] = measure.compare_psnr(original_matrix, compressed)
+        	res['dft_compression'] = calc_comp_rate(orig_path, dft_im_path)
 
         results.append(res)
 
@@ -180,4 +200,4 @@ if __name__ == '__main__':
     #get_size(pickle)
 
 
-    print(run_pipeline(['images/real/boat.png'], include_dwt=True))
+    print(run_pipeline(['images/real/boat.png'], include_dwt=True, include_dft=True, include_dct=True))
