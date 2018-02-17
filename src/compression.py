@@ -2,6 +2,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pywt
 import scipy
+import os
 import sys
 from io import StringIO
 from io import BytesIO
@@ -9,6 +10,8 @@ from numpy.linalg import svd
 from skimage import data, img_as_float
 from skimage import measure
 from skimage.color import rgb2gray
+
+BASE_PROCESSING_FOLDER = 'images/processing'
 
 
 def print_result_decorator(original_function):
@@ -72,7 +75,7 @@ def perform_dwt(image_to_compress):
     coefs = pywt.dwt2(image_to_compress, 'haar')
     compressed, (a, b, c) = coefs
     #scipy.misc.imsave('photo/compressed.jpg', compressed)
-    return compressed, coefs
+    return np.array(compressed), coefs
 
 
 def get_size(obj, seen=None):
@@ -93,6 +96,57 @@ def get_size(obj, seen=None):
     elif hasattr(obj, '__iter__') and not isinstance(obj, (str, bytes, bytearray)):
         size += sum([get_size(i, seen) for i in obj])
     return size
+
+
+def calc_comp_rate(original, compressed):
+    return os.path.getsize(original) / os.path.getsize(compressed)
+
+
+def run_pipeline(im_pathes, include_svd = True, include_dwt = False, svd_percentage = 0.9, save_temporary_results = False):
+    if not include_svd and not include_dwt:
+        raise ValueError('Do at least something!')
+    results = []
+
+    for im_path in im_pathes:
+        im_name = im_path.split('/')[-1]
+        original_matrix = img_as_float(rgb2gray(scipy.misc.imread(im_path)))
+        compressed = original_matrix
+        orig_path = os.path.join(BASE_PROCESSING_FOLDER, '{}.png'.format(im_name))
+        scipy.misc.imsave(orig_path, original_matrix)
+        res = {'picture':im_path}
+
+        if include_svd:
+            compressed = perform_percent_svd(compressed, svd_percentage)
+            svd_im_path = os.path.join(BASE_PROCESSING_FOLDER,
+                                           'svd_c_{}.png'.format(im_name))
+            scipy.misc.imsave(svd_im_path, compressed)
+            res['svd_compression'] = calc_comp_rate(orig_path, svd_im_path)
+            res['svd_psnr'] = measure.compare_psnr(original_matrix, compressed)
+
+        if include_dwt:
+            compressed, coefs = perform_dwt(compressed)
+            dwt_im_path = os.path.join(BASE_PROCESSING_FOLDER,
+                                       'dwt_c_{}.png'.format(im_name))
+
+            #some issue with this part
+            scipy.misc.imsave(dwt_im_path, compressed)
+            res['dwt_decomposed_compression'] = calc_comp_rate(orig_path, dwt_im_path)
+
+            compressed = pywt.idwt2(coefs, 'haar')
+            restored_im_path = os.path.join(BASE_PROCESSING_FOLDER,
+                                       'restored_c_{}.png'.format(im_name))
+            scipy.misc.imsave(restored_im_path, compressed)
+            res['dwt_restored_compression'] = calc_comp_rate(orig_path, restored_im_path)
+            res['dwt_restored_psnr'] = measure.compare_psnr(original_matrix, compressed)
+
+        results.append(res)
+
+    return results
+
+
+
+
+
 
 
 if __name__ == '__main__':
@@ -123,4 +177,7 @@ if __name__ == '__main__':
     import pickle
 
     orig = pickle.dumps(img_matrix)
-    get_size(pickle)
+    #get_size(pickle)
+
+
+    print(run_pipeline(['images/real/boat.png'], include_dwt=True))
