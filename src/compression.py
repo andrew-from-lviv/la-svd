@@ -150,33 +150,33 @@ def run_pipeline(im_pathes, include_svd = True, include_dwt = False, svd_percent
 
 
 if __name__ == '__main__':
-    img_matrix = img_as_float(rgb2gray(data.astronaut()))
-    # svd_compressed = compress_image_with_svd(data.astronaut(), 50)
-
-    svd_compressed = perform_percent_svd(img_matrix)
-
-    fully_compressed, dwt_decomposition = perform_dwt(svd_compressed)
-
-    dwt_restored = pywt.idwt2(dwt_decomposition, 'haar')
-
-    psnr_svd = measure.compare_psnr(img_matrix, svd_compressed)
-    #psnr_dwt = measure.compare_psnr(svd_compressed, dwt_restored)
-    psnr_total = measure.compare_psnr(img_matrix, dwt_restored)
-
-    print(psnr_svd)
-    #print(psnr_dwt)
-    print(psnr_total)
-
-    #-WTF?
-    print('Original: ' + str(get_size(img_matrix)))
-    print('SVD Compressed: ' + str(get_size(svd_compressed)))
-    print('DWT Compressed: ' + str(get_size(fully_compressed)))
-    print('DWT Decomposition: ' + str(get_size(dwt_decomposition)))  # ??? Where is the compression? Need to find other way for calculations
-    print('Restored: ' + str(get_size(dwt_restored)))
-
-    import pickle
-
-    orig = pickle.dumps(img_matrix)
+    # img_matrix = img_as_float(rgb2gray(data.astronaut()))
+    # # svd_compressed = compress_image_with_svd(data.astronaut(), 50)
+    #
+    # svd_compressed = perform_percent_svd(img_matrix)
+    #
+    # fully_compressed, dwt_decomposition = perform_dwt(svd_compressed)
+    #
+    # dwt_restored = pywt.idwt2(dwt_decomposition, 'haar')
+    #
+    # psnr_svd = measure.compare_psnr(img_matrix, svd_compressed)
+    # #psnr_dwt = measure.compare_psnr(svd_compressed, dwt_restored)
+    # psnr_total = measure.compare_psnr(img_matrix, dwt_restored)
+    #
+    # print(psnr_svd)
+    # #print(psnr_dwt)
+    # print(psnr_total)
+    #
+    # #-WTF?
+    # print('Original: ' + str(get_size(img_matrix)))
+    # print('SVD Compressed: ' + str(get_size(svd_compressed)))
+    # print('DWT Compressed: ' + str(get_size(fully_compressed)))
+    # print('DWT Decomposition: ' + str(get_size(dwt_decomposition)))  # ??? Where is the compression? Need to find other way for calculations
+    # print('Restored: ' + str(get_size(dwt_restored)))
+    #
+    # import pickle
+    #
+    # orig = pickle.dumps(img_matrix)
     #get_size(pickle)
 
 
