@@ -1,20 +1,18 @@
+import os
+import sys
+
+import benchmark
 import matplotlib.pyplot as plt
 import numpy as np
 import pywt
 import scipy
-import os
-import sys
-import benchmark
-from io import StringIO
-from io import BytesIO
 from numpy.linalg import svd
-from skimage import data, img_as_float
+from skimage import img_as_float
 from skimage import measure
 from skimage.color import rgb2gray
 
-
 BASE_PROCESSING_FOLDER = 'images/real'
-BASE_SAVING_FOLDER = 'images/compressed'
+BASE_SAVING_FOLDER = 'images/processing'
 
 
 def print_result_decorator(original_function):
@@ -74,10 +72,8 @@ def compress_image_with_svd(img_to_compress, k):
 
 #@print_result_decorator
 def perform_dwt(image_to_compress):
-    #scipy.misc.imsave('photo/real.jpg', image_to_compress)
     coefs = pywt.dwt2(image_to_compress, 'haar')
     compressed, (a, b, c) = coefs
-    #scipy.misc.imsave('photo/compressed.jpg', compressed)
     return np.array(compressed), coefs
 
 
@@ -102,10 +98,29 @@ def get_size(obj, seen=None):
 
 
 def calc_comp_rate(original, compressed):
+    """
+    Calculates memory compression rate
+    :param original: path to the original file in local fs
+    :param compressed: path to the compressed file in local fs
+    :return:
+    """
     return (1 - round(os.path.getsize(compressed) / float(os.path.getsize(original)), 3))*100
 
 
-def run_pipeline(im_pathes, include_svd = True, include_dwt = False, include_dct = False, include_dft=False, svd_percentage = 0.9, save_temporary_results = False):
+def run_pipeline(im_pathes, include_svd = True, include_dwt = False,
+                 include_dct = False, include_dft=False, svd_percentage = 0.9):
+    """
+    Executes an automated workflow configured by input params and returns
+    compression and psnr results for each step
+    Saves internal step pictures to /processing folder
+    :param im_pathes: list of image paths in local fs
+    :param include_svd: flag to include svd: True by default
+    :param include_dwt: flag to include dwt: False by default
+    :param include_dct: flag to include dct: False by default
+    :param include_dft: flag to include dft: False by default
+    :param svd_percentage: partition of vectors to be preserved by SVD
+    :return: Dictionary with all the metrics for each step
+    """
     if not include_svd and not include_dwt:
         raise ValueError('Do at least something!')
     results = []
@@ -131,7 +146,6 @@ def run_pipeline(im_pathes, include_svd = True, include_dwt = False, include_dct
             dwt_im_path = os.path.join(BASE_SAVING_FOLDER,
                                        'dwt_c_{}'.format(im_name))
 
-            #some issue with this part
             scipy.misc.imsave(dwt_im_path, compressed)
             res['dwt_decomposed_compression'] = calc_comp_rate(orig_path, dwt_im_path)
 
@@ -146,7 +160,7 @@ def run_pipeline(im_pathes, include_svd = True, include_dwt = False, include_dct
         	compressed = benchmark.compressed_dct(original_matrix)
         	dct_im_path = os.path.join(BASE_SAVING_FOLDER, 'dct_c_{}'.format(im_name))
 
-        	scipy.misc.imsave(svd_im_path, compressed)
+        	scipy.misc.imsave(dct_im_path, compressed)
         	res['dct_psnr'] = measure.compare_psnr(original_matrix, compressed)
         	res['dct_compression'] = calc_comp_rate(orig_path, dct_im_path)
 
@@ -155,7 +169,7 @@ def run_pipeline(im_pathes, include_svd = True, include_dwt = False, include_dct
         	compressed = benchmark.compressed_dft(original_matrix)
         	dft_im_path = os.path.join(BASE_SAVING_FOLDER, 'dft_c_{}'.format(im_name))
 
-        	scipy.misc.imsave(svd_im_path, compressed)
+        	scipy.misc.imsave(dft_im_path, compressed)
         	res['dft_psnr'] = measure.compare_psnr(original_matrix, compressed)
         	res['dft_compression'] = calc_comp_rate(orig_path, dft_im_path)
 
@@ -164,40 +178,5 @@ def run_pipeline(im_pathes, include_svd = True, include_dwt = False, include_dct
     return results
 
 
-
-
-
-
-
 if __name__ == '__main__':
-    # img_matrix = img_as_float(rgb2gray(data.astronaut()))
-    # # svd_compressed = compress_image_with_svd(data.astronaut(), 50)
-    #
-    # svd_compressed = perform_percent_svd(img_matrix)
-    #
-    # fully_compressed, dwt_decomposition = perform_dwt(svd_compressed)
-    #
-    # dwt_restored = pywt.idwt2(dwt_decomposition, 'haar')
-    #
-    # psnr_svd = measure.compare_psnr(img_matrix, svd_compressed)
-    # #psnr_dwt = measure.compare_psnr(svd_compressed, dwt_restored)
-    # psnr_total = measure.compare_psnr(img_matrix, dwt_restored)
-    #
-    # print(psnr_svd)
-    # #print(psnr_dwt)
-    # print(psnr_total)
-    #
-    # #-WTF?
-    # print('Original: ' + str(get_size(img_matrix)))
-    # print('SVD Compressed: ' + str(get_size(svd_compressed)))
-    # print('DWT Compressed: ' + str(get_size(fully_compressed)))
-    # print('DWT Decomposition: ' + str(get_size(dwt_decomposition)))  # ??? Where is the compression? Need to find other way for calculations
-    # print('Restored: ' + str(get_size(dwt_restored)))
-    #
-    # import pickle
-    #
-    # orig = pickle.dumps(img_matrix)
-    #get_size(pickle)
-
-
-    print(run_pipeline(['images/real/boat.png'], include_dwt=True, include_dft=True, include_dct=True))
+    print(run_pipeline(['images/real/watch.png'], include_dwt=True, include_dft=True, include_dct=True))
